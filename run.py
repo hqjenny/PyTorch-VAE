@@ -38,6 +38,7 @@ cudnn.deterministic = True
 cudnn.benchmark = False
 
 model = vae_models[config['model_params']['name']](**config['model_params'])
+model = model.double()
 experiment = VAEXperiment(model,
                           config['exp_params'])
 

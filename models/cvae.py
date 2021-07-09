@@ -17,49 +17,57 @@ class ConditionalVAE(BaseVAE):
         super(ConditionalVAE, self).__init__()
 
         self.latent_dim = latent_dim
+
+        self.scale = torch.tensor([2 ** 16] * in_channels).double()
+        self.encode_scale = torch.tensor([2 ** 16] * in_channels + [1]).double()
         self.img_size = img_size
 
-        self.embed_class = nn.Linear(num_classes, img_size * img_size)
-        self.embed_data = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        #self.embed_class = nn.Linear(num_classes, img_size * img_size)
+        # self.embed_data = nn.Conv2d(in_channels, in_channels, kernel_size=1)
 
         modules = []
         if hidden_dims is None:
-            hidden_dims = [32, 64, 128, 256, 512]
+            #hidden_dims = [32, 64, 128, 256, 512]
+            hidden_dims = [32,64]
 
         in_channels += 1 # To account for the extra label channel
         # Build Encoder
         for h_dim in hidden_dims:
             modules.append(
-                nn.Sequential(
-                    nn.Conv2d(in_channels, out_channels=h_dim,
-                              kernel_size= 3, stride= 2, padding  = 1),
-                    nn.BatchNorm2d(h_dim),
-                    nn.LeakyReLU())
+                 nn.Sequential(
+#                     nn.Conv2d(in_channels, out_channels=h_dim,
+#                               kernel_size= 1, stride=1, padding  = 1),                    
+#                     nn.BatchNorm2d(h_dim),
+                     nn.Linear(in_channels, h_dim),
+#                     nn.BatchNorm1d(h_dim),
+                     nn.LeakyReLU())
             )
             in_channels = h_dim
 
         self.encoder = nn.Sequential(*modules)
-        self.fc_mu = nn.Linear(hidden_dims[-1]*4, latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1]*4, latent_dim)
+        self.fc_mu = nn.Linear(hidden_dims[-1], latent_dim)
+        self.fc_var = nn.Linear(hidden_dims[-1], latent_dim)
 
 
         # Build Decoder
         modules = []
 
-        self.decoder_input = nn.Linear(latent_dim + num_classes, hidden_dims[-1] * 4)
+        self.decoder_input = nn.Linear(latent_dim+1, hidden_dims[-1])
 
         hidden_dims.reverse()
 
         for i in range(len(hidden_dims) - 1):
             modules.append(
                 nn.Sequential(
-                    nn.ConvTranspose2d(hidden_dims[i],
-                                       hidden_dims[i + 1],
-                                       kernel_size=3,
-                                       stride = 2,
-                                       padding=1,
-                                       output_padding=1),
-                    nn.BatchNorm2d(hidden_dims[i + 1]),
+#                    nn.ConvTranspose2d(hidden_dims[i],
+#                                       hidden_dims[i + 1],
+#                                       kernel_size=1,
+#                                       stride = 1,
+#                                       padding=1,
+#                                       output_padding=1),
+#                    nn.BatchNorm2d(hidden_dims[i + 1]),
+                    nn.Linear(hidden_dims[i], hidden_dims[i + 1]),
+#                    nn.BatchNorm1d(hidden_dims[i + 1]),
                     nn.LeakyReLU())
             )
 
@@ -68,17 +76,21 @@ class ConditionalVAE(BaseVAE):
         self.decoder = nn.Sequential(*modules)
 
         self.final_layer = nn.Sequential(
-                            nn.ConvTranspose2d(hidden_dims[-1],
-                                               hidden_dims[-1],
-                                               kernel_size=3,
-                                               stride=2,
-                                               padding=1,
-                                               output_padding=1),
-                            nn.BatchNorm2d(hidden_dims[-1]),
+#                            nn.ConvTranspose2d(hidden_dims[-1],
+#                                               hidden_dims[-1],
+#                                               kernel_size=1,
+#                                               stride=1,
+#                                               padding=1,
+#                                               output_padding=1),
+#                            nn.BatchNorm2d(hidden_dims[-1]),
+                            nn.Linear(hidden_dims[-1], hidden_dims[-1]),
+#                            nn.BatchNorm1d(hidden_dims[-1]),
                             nn.LeakyReLU(),
-                            nn.Conv2d(hidden_dims[-1], out_channels= 3,
-                                      kernel_size= 3, padding= 1),
-                            nn.Tanh())
+#                            nn.Conv2d(hidden_dims[-1], out_channels= 1,
+#                                      kernel_size= 1, padding= 1),
+                            nn.Linear(hidden_dims[-1], 12),
+                            nn.Sigmoid()
+                            )
 
     def encode(self, input: Tensor) -> List[Tensor]:
         """
@@ -87,7 +99,8 @@ class ConditionalVAE(BaseVAE):
         :param input: (Tensor) Input tensor to encoder [N x C x H x W]
         :return: (Tensor) List of latent codes
         """
-        result = self.encoder(input)
+        norm_input = torch.div(input.double(), self.encode_scale)
+        result = self.encoder(norm_input.double())
         result = torch.flatten(result, start_dim=1)
 
         # Split the result into mu and var components
@@ -99,10 +112,11 @@ class ConditionalVAE(BaseVAE):
 
     def decode(self, z: Tensor) -> Tensor:
         result = self.decoder_input(z)
-        result = result.view(-1, 512, 2, 2)
+        #result = result.view(-1, 512, 2, 2)
         result = self.decoder(result)
         result = self.final_layer(result)
-        return result
+        denorm_result = torch.mul(result, self.scale)
+        return denorm_result
 
     def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
         """
@@ -117,17 +131,24 @@ class ConditionalVAE(BaseVAE):
         return eps * std + mu
 
     def forward(self, input: Tensor, **kwargs) -> List[Tensor]:
-        y = kwargs['labels'].float()
-        embedded_class = self.embed_class(y)
-        embedded_class = embedded_class.view(-1, self.img_size, self.img_size).unsqueeze(1)
-        embedded_input = self.embed_data(input)
+        y = kwargs['labels'].double() / 10**10
+        #embedded_class = self.embed_class(y)
+        #embedded_class = embedded_class.view(-1, self.img_size, self.img_size).unsqueeze(1)
+        #embedded_input = self.embed_data(input)
 
-        x = torch.cat([embedded_input, embedded_class], dim = 1)
+        embedded = y.view(-1, 1)
+        # x = torch.cat([embedded_input, embedded_class], dim = 1)
+        x = torch.cat([input.double(), embedded.double()], dim = 1)
         mu, log_var = self.encode(x)
 
         z = self.reparameterize(mu, log_var)
+        print(z.size())
+        print(embedded.size())
 
-        z = torch.cat([z, y], dim = 1)
+
+        #z = torch.cat([z, embedded], dim = 1)
+        z = torch.cat([z, embedded], dim=1)
+        print(z.size())
         return  [self.decode(z), input, mu, log_var]
 
     def loss_function(self,

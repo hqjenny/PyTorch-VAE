@@ -1,5 +1,6 @@
 import math
 import torch
+import cosa_dataset
 from torch import optim
 from models import BaseVAE
 from models.types_ import *
@@ -10,7 +11,26 @@ import torchvision.utils as vutils
 from torchvision.datasets import CelebA
 from torch.utils.data import DataLoader
 
+model = BaseVAE
+predictor = nn.Sequential(
+            nn.Linear(args.nz, args.hs),
+            nn.Tanh(),
+            nn.Linear(args.hs, 1),
+            nn.Sigmoid()
+            )
+    model.predictor = predictor
+    model.mseloss = nn.MSELoss(reduction='sum')
 
+predictor_complexity = nn.Sequential(
+        nn.Linear(args.nz, args.hs),
+        nn.Tanh(),
+        nn.Linear(args.hs, 1),
+        nn.Sigmoid()
+        )
+model.predictor_complexity = predictor_complexity
+model.mseloss = nn.MSELoss(reduction='sum')
+
+ 
 class VAEXperiment(pl.LightningModule):
 
     def __init__(self,
@@ -46,9 +66,11 @@ class VAEXperiment(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx, optimizer_idx = 0):
         real_img, labels = batch
-        self.curr_device = real_img.device
+        # self.curr_device = real_img.device
 
+        print(f'real_img, {batch}')
         results = self.forward(real_img, labels = labels)
+        print(f'latent vector, {results}')
         val_loss = self.model.loss_function(*results,
                                             M_N = self.params['batch_size']/ self.num_val_imgs,
                                             optimizer_idx = optimizer_idx,
@@ -68,11 +90,17 @@ class VAEXperiment(pl.LightningModule):
         test_input = test_input.to(self.curr_device)
         test_label = test_label.to(self.curr_device)
         recons = self.model.generate(test_input, labels = test_label)
-        vutils.save_image(recons.data,
-                          f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/"
-                          f"recons_{self.logger.name}_{self.current_epoch}.png",
-                          normalize=True,
-                          nrow=12)
+        fn =  f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/recons_{self.logger.name}_{self.current_epoch}.csv"
+
+        with open(fn, 'w') as f:
+            result = recons.data.tolist()
+            f.write(f'{result}\n')
+
+        # Vutils.save_image(recons.data,
+        #                   f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/"
+        #                   f"recons_{self.logger.name}_{self.current_epoch}.png",
+        #                   normalize=True,
+        #                   nrow=12)
 
         # vutils.save_image(test_input.data,
         #                   f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/"
@@ -81,14 +109,20 @@ class VAEXperiment(pl.LightningModule):
         #                   nrow=12)
 
         try:
-            samples = self.model.sample(144,
+            samples = self.model.sample(16,
                                         self.curr_device,
                                         labels = test_label)
-            vutils.save_image(samples.cpu().data,
-                              f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/"
-                              f"{self.logger.name}_{self.current_epoch}.png",
-                              normalize=True,
-                              nrow=12)
+            # vutils.save_image(samples.cpu().data,
+            #                   f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/"
+            #                   f"{self.logger.name}_{self.current_epoch}.png",
+            #                   normalize=True,
+            #                   nrow=12)
+            fn =  f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/{self.logger.name}_{self.current_epoch}.csv"
+
+            with open(fn, 'w') as f:
+                result = samples.cpu().data.tolist()
+                f.write(f'{result}\n')
+
         except:
             pass
 
@@ -134,13 +168,14 @@ class VAEXperiment(pl.LightningModule):
 
     @data_loader
     def train_dataloader(self):
-        transform = self.data_transforms()
-
         if self.params['dataset'] == 'celeba':
+            transform = self.data_transforms()
             dataset = CelebA(root = self.params['data_path'],
                              split = "train",
                              transform=transform,
-                             download=False)
+                             download=False)	
+        elif self.params['dataset'] == 'cosa':
+            dataset = cosa_dataset.CoSADataset(root = self.params['data_path'], split= "train")
         else:
             raise ValueError('Undefined dataset type')
 
@@ -152,19 +187,23 @@ class VAEXperiment(pl.LightningModule):
 
     @data_loader
     def val_dataloader(self):
-        transform = self.data_transforms()
 
         if self.params['dataset'] == 'celeba':
-            self.sample_dataloader =  DataLoader(CelebA(root = self.params['data_path'],
-                                                        split = "test",
-                                                        transform=transform,
-                                                        download=False),
-                                                 batch_size= 144,
-                                                 shuffle = True,
-                                                 drop_last=True)
-            self.num_val_imgs = len(self.sample_dataloader)
+            transform = self.data_transforms()
+            dataset = CelebA(root = self.params['data_path'], split = "test", transform=transform,
+						    download=False)
+        elif self.params['dataset'] == 'cosa':
+            dataset = cosa_dataset.CoSADataset(root = self.params['data_path'], split= "test")
+
         else:
             raise ValueError('Undefined dataset type')
+        
+        
+        self.sample_dataloader =  DataLoader(dataset,
+					     batch_size= 4,
+					     shuffle = True,
+					     drop_last=True)
+        self.num_val_imgs = len(self.sample_dataloader)
 
         return self.sample_dataloader
 
