@@ -11,25 +11,6 @@ import torchvision.utils as vutils
 from torchvision.datasets import CelebA
 from torch.utils.data import DataLoader
 
-model = BaseVAE
-predictor = nn.Sequential(
-            nn.Linear(args.nz, args.hs),
-            nn.Tanh(),
-            nn.Linear(args.hs, 1),
-            nn.Sigmoid()
-            )
-    model.predictor = predictor
-    model.mseloss = nn.MSELoss(reduction='sum')
-
-predictor_complexity = nn.Sequential(
-        nn.Linear(args.nz, args.hs),
-        nn.Tanh(),
-        nn.Linear(args.hs, 1),
-        nn.Sigmoid()
-        )
-model.predictor_complexity = predictor_complexity
-model.mseloss = nn.MSELoss(reduction='sum')
-
  
 class VAEXperiment(pl.LightningModule):
 

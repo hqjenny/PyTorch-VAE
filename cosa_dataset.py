@@ -14,29 +14,33 @@ warnings.filterwarnings("ignore")
 class CoSADataset(Dataset):
     """Face Landmarks dataset."""
 
-    def __init__(self, root='.', split='train'):
+    def __init__(self, root='.', split='train', transform=None, target_transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
         """
         csv_file = f'{root}/arch_dataset_12.csv'
         print(csv_file)
-        self.landmarks_frame = pd.read_csv(csv_file)
+        self.arch_feats_frame = pd.read_csv(csv_file)
+        self.transform = transform
+        self.target_transform = target_transform
 
     def __len__(self):
-        return len(self.landmarks_frame)
+        return len(self.arch_feats_frame)
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        # print(self.landmarks_frame.iloc[idx, 0])
-        landmarks = self.landmarks_frame.iloc[idx, 3:]
-        label = self.landmarks_frame.iloc[idx, 1]
+        arch_feats = self.arch_feats_frame.iloc[idx, 3:]
+        label = self.arch_feats_frame.iloc[idx, 1]
         print(f'cycle: {label}')
-        landmarks = np.array([landmarks])
-        landmarks = landmarks.astype('float').reshape(-1, ).astype(np.float64)
-        sample = {'image': landmarks, 'label': label}
-        # print(f'sample: {sample}')
+        arch_feats = np.array([arch_feats])
+        arch_feats = arch_feats.astype('float').reshape(-1, ).astype(np.float64)
+    
+        if self.transform:
+            arch_feats = self.transform(arch_feats)
+        if self.target_transform:
+            label = self.target_transform(label)
 
-        return landmarks, 1
+        return arch_feats, label
