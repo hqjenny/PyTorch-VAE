@@ -16,7 +16,7 @@ class VanillaVAE(BaseVAE):
         super(VanillaVAE, self).__init__()
 
         self.latent_dim = latent_dim
-        self.scale = torch.tensor([2 ** 16] * in_channels).double()
+        self.scale = torch.tensor([2 ** 10] + [2 ** 16] * (in_channels-1)).double()
 
         modules = []
         if hidden_dims is None:

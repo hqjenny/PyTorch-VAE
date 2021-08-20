@@ -52,7 +52,7 @@ class CoSADataset(Dataset):
 
         print(f'cycle: {label}')
         arch_feats = np.array([arch_feats])
-        arch_feats = arch_feats.astype('float').reshape(-1, ).astype(np.float64)
+        arch_feats = arch_feats.astype('double').reshape(-1, ).astype(np.float64)
     
         if self.transform:
             arch_feats = self.transform(arch_feats)
