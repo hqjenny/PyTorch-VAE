@@ -23,7 +23,7 @@ class VanillaVAENorm(BaseVAE):
 
         modules = []
         if hidden_dims is None:
-            # hidden_dims = [16, 64, 16]
+            # hidden_dims = [32, 64, 128, 256, 512]
             hidden_dims = [32,64]
 
         # Build Encoder
