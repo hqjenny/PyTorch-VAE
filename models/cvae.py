@@ -18,8 +18,8 @@ class ConditionalVAE(BaseVAE):
 
         self.latent_dim = latent_dim
 
-        self.scale = torch.tensor([2 ** 16] * in_channels).double()
-        self.encode_scale = torch.tensor([2 ** 16] * in_channels + [1]).double()
+        self.scale = torch.tensor([2 ** 18] * in_channels).double()
+        self.encode_scale = torch.tensor([2 ** 18] * in_channels + [2**24]).double()
         self.img_size = img_size
 
         #self.embed_class = nn.Linear(num_classes, img_size * img_size)
@@ -30,7 +30,8 @@ class ConditionalVAE(BaseVAE):
             #hidden_dims = [32, 64, 128, 256, 512]
             hidden_dims = [32,64]
 
-        in_channels += 1 # To account for the extra label channel
+        # To account for the extra label channel
+        in_dim = in_channels + 1 
         # Build Encoder
         for h_dim in hidden_dims:
             modules.append(
@@ -38,11 +39,11 @@ class ConditionalVAE(BaseVAE):
 #                     nn.Conv2d(in_channels, out_channels=h_dim,
 #                               kernel_size= 1, stride=1, padding  = 1),                    
 #                     nn.BatchNorm2d(h_dim),
-                     nn.Linear(in_channels, h_dim),
+                     nn.Linear(in_dim, h_dim),
 #                     nn.BatchNorm1d(h_dim),
                      nn.LeakyReLU())
             )
-            in_channels = h_dim
+            in_dim = h_dim
 
         self.encoder = nn.Sequential(*modules)
         self.fc_mu = nn.Linear(hidden_dims[-1], latent_dim)
@@ -88,7 +89,7 @@ class ConditionalVAE(BaseVAE):
                             nn.LeakyReLU(),
 #                            nn.Conv2d(hidden_dims[-1], out_channels= 1,
 #                                      kernel_size= 1, padding= 1),
-                            nn.Linear(hidden_dims[-1], 12),
+                            nn.Linear(hidden_dims[-1], in_channels),
                             nn.Sigmoid()
                             )
 

@@ -19,7 +19,12 @@ parser.add_argument('--config',  '-c',
 
 parser.add_argument('--load_model', 
                     action='store_true',
-                    help='if loading an existing model',
+                    help='If specified, load an existing model.',
+                    )
+
+parser.add_argument('--store_model', 
+                    action='store_true',
+                    help='If specified, store an existing model.',
                     )
 
 args = parser.parse_args()
@@ -44,8 +49,9 @@ cudnn.deterministic = True
 cudnn.benchmark = False
 
 model = vae_models[config['model_params']['name']](**config['model_params'])
+model_filename = "model.pt"
+
 if args.load_model:
-    model_filename = "model.pt"
     model.load_state_dict(torch.load(model_filename))
 model = model.double()
 
@@ -71,8 +77,8 @@ runner = Trainer(default_save_path=f"{tt_logger.save_dir}",
 
 print(f"======= Training {config['model_params']['name']} =======")
 runner.fit(experiment)
-torch.save(model.state_dict(), model_filename)
+if args.store_model:
+    torch.save(model.state_dict(), model_filename)
 
 # runner.test(experiment)
-
 print(next(model.parameters())[:10])

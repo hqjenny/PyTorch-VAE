@@ -1,14 +1,14 @@
 model_params:
   name: 'VanillaVAE'
-  in_channels: 12
+  in_channels: 10
   latent_dim: 4
 
 exp_params:
   dataset: cosa
   data_path: "/scratch/qijing.huang/matchlib/cmod/unittests/HybridRouterTopMeshTCGB"
-  img_size: 12
+  img_size: 10
   batch_size: 16 # Better to have a square number
-  LR: 0.005
+  LR: 0.001
   weight_decay: 0.0
   scheduler_gamma: 0.95
 
@@ -19,5 +19,5 @@ trainer_params:
 
 logging_params:
   save_dir: "logs/"
-  name: "VanillaVAE_12"
+  name: "VanillaVAE"
   manual_seed: 1265

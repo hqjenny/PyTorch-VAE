@@ -17,7 +17,7 @@ class VanillaVAENorm(BaseVAE):
 
         self.latent_dim = latent_dim
         # self.scale = torch.tensor([2 ** 16] * in_channels).double()
-        self.scale = torch.tensor([128, 4096, 4096, 1, 512, 256, 512, 2**16, 256, 4096, 1, 2**18]).double()
+        self.scale = torch.tensor([128, 4096, 4096, 512, 256, 512, 2**16, 256, 4096, 2**18]).double()
     
 
         modules = []
@@ -26,17 +26,18 @@ class VanillaVAENorm(BaseVAE):
             hidden_dims = [32,64]
 
         # Build Encoder
+        in_dim = in_channels
         for h_dim in hidden_dims:
             modules.append(
                  nn.Sequential(
 #                     nn.Conv2d(in_channels, out_channels=h_dim,
 #                               kernel_size= 1, stride=1, padding  = 1),                    
 #                     nn.BatchNorm2d(h_dim),
-                     nn.Linear(in_channels, h_dim),
+                     nn.Linear(in_dim, h_dim),
 #                     nn.BatchNorm1d(h_dim),
                      nn.LeakyReLU())
             )
-            in_channels = h_dim
+            in_dim = h_dim
 
         self.encoder = nn.Sequential(*modules)
         self.fc_mu = nn.Linear(hidden_dims[-1], latent_dim)
@@ -81,7 +82,7 @@ class VanillaVAENorm(BaseVAE):
                             nn.LeakyReLU(),
 #                            nn.Conv2d(hidden_dims[-1], out_channels= 1,
 #                                      kernel_size= 1, padding= 1),
-                            nn.Linear(hidden_dims[-1], 12),
+                            nn.Linear(hidden_dims[-1], in_channels),
 #                            nn.ReLU(),
                             nn.Sigmoid()
                             )
