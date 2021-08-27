@@ -14,8 +14,13 @@ parser = argparse.ArgumentParser(description='Generic runner for VAE models')
 parser.add_argument('--config',  '-c',
                     dest="filename",
                     metavar='FILE',
-                    help =  'path to the config file',
+                    help='path to the config file',
                     default='configs/vae.yaml')
+
+parser.add_argument('--load_model', 
+                    action='store_true',
+                    help='if loading an existing model',
+                    )
 
 args = parser.parse_args()
 with open(args.filename, 'r') as file:
@@ -39,8 +44,9 @@ cudnn.deterministic = True
 cudnn.benchmark = False
 
 model = vae_models[config['model_params']['name']](**config['model_params'])
-model_filename = "model.pt"
-model.load_state_dict(torch.load(model_filename))
+if args.load_model:
+    model_filename = "model.pt"
+    model.load_state_dict(torch.load(model_filename))
 model = model.double()
 
 hparams = argparse.Namespace(**config['exp_params'])

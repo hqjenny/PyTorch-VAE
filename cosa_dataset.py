@@ -50,7 +50,6 @@ class CoSADataset(Dataset):
         arch_feats = self.arch_feats_frame.iloc[idx, 3:]
         label = self.arch_feats_frame.iloc[idx, 1]
 
-        print(f'cycle: {label}')
         arch_feats = np.array([arch_feats])
         arch_feats = arch_feats.astype('double').reshape(-1, ).astype(np.float64)
     

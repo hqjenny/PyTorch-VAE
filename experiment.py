@@ -165,10 +165,18 @@ class VAEXperiment(pl.LightningModule):
 
         recons = self.model.generate(test_input, labels = test_label)
         fn =  f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/recons_{self.logger.name}_{self.current_epoch}.csv"
+        fn_input =  f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/input_{self.logger.name}_{self.current_epoch}.csv"
 
         with open(fn, 'w') as f:
             result = recons.data.tolist()
             f.write(f'{result}\n')
+
+
+        with open(fn_input, 'w') as f:
+            result =test_input.data.tolist()
+            f.write(f'{result}\n')
+
+
 
         # Vutils.save_image(recons.data,
         #                   f"{self.logger.save_dir}{self.logger.name}/version_{self.logger.version}/"
