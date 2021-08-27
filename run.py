@@ -54,6 +54,7 @@ model_filename = "model.pt"
 if args.load_model:
     model.load_state_dict(torch.load(model_filename))
 model = model.double()
+# model.eval()
 
 hparams = argparse.Namespace(**config['exp_params'])
 experiment = VAEXperiment(model,
