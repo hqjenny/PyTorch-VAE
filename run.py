@@ -44,10 +44,11 @@ cudnn.deterministic = True
 cudnn.benchmark = False
 
 model = vae_models[config['model_params']['name']](**config['model_params'])
+model_filename = "model.pt"
 if args.load_model:
-    model_filename = "model.pt"
-    model.load_state_dict(torch.load(model_filename))
+    # model.load_state_dict(torch.load(model_filename))
 model = model.double()
+# model.eval()
 
 hparams = argparse.Namespace(**config['exp_params'])
 experiment = VAEXperiment(model,

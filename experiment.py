@@ -111,11 +111,11 @@ class VAEXperiment(pl.LightningModule):
 
         # Test encoding 
         real_img_manual = torch.tensor([
-                                        [16, 1024, 1024, 1, 128, 64, 128, 16384, 64, 1024, 1, 65536]
+                                        [16, 1024, 1024, 1, 128, 64, 128, 16384, 64, 1024, 1, 262144]
                                        ],
                                        dtype=torch.float64)
         labels_manual = torch.tensor([
-                                        4121961
+                                        2793525
                                      ])
         # result_manual = self.model.encode(real_img_manual)
         result_manual = self.forward(real_img_manual, labels=labels_manual)
@@ -129,12 +129,53 @@ class VAEXperiment(pl.LightningModule):
         print("z:")
         print(z)
 
-        # Test decoding
-        # z = torch.tensor([[0.1, -0.9964, -0.8327, -0.3403]]).double()
-        z = torch.tensor([[2.4483,  2.7174,  2.4963, -0.6122]]).double()
         decoded = self.model.decode(z)
         print("decoded:")
         print(decoded)
+
+        exit(0)
+
+        # Test decoding
+        # z = torch.tensor([[0.1, -0.9964, -0.8327, -0.3403]]).double()
+        # z = torch.tensor([[2.4483,  2.7174,  2.4963, -0.6122]]).double()
+        # z = torch.tensor([[ 1.2228,  3.1153,  2.7553, -0.2200]]).double()
+
+        from mpl_toolkits import mplot3d
+        import numpy as np
+        import matplotlib.pyplot as plt
+
+        # L1 = [1, 1.1, 1.2, 1.3, 1.4]
+        # L2 = [2.9, 3, 3.1, 3.2, 3.3]
+        L1 = np.linspace(-1, 3, 60)
+        L2 = np.linspace(1, 5, 60)
+        X, Y = np.meshgrid(L1, L2)
+        print(X)
+        print(Y)
+        Z = np.zeros(X.shape)
+
+        for yidx in range(X.shape[0]):
+            for xidx in range(X.shape[1]):
+                z = torch.tensor([[ X[yidx][xidx],  Y[yidx][xidx],  2.7553, -0.1]]).double()
+                decoded = self.model.decode(z)
+                print("decoded:")
+                print(decoded)
+
+                arch_val = decoded[0][7]
+                Z[yidx][xidx] = arch_val
+
+        print(Z)
+
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        ax.contour3D(np.array(L1), np.array(L2), np.array(Z), 80, cmap='binary')
+        ax.set_xlabel('l1')
+        ax.set_ylabel('l2')
+        ax.set_zlabel('entries_weightbuf')
+
+        ax.view_init(40, 35)
+        plt.savefig('contour.png', bbox_inches='tight')
+
+        exit(0)
 
         avg_loss = torch.stack([x['loss'] for x in outputs]).mean()
         tensorboard_logs = {'avg_val_loss': avg_loss}
