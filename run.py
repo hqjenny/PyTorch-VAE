@@ -20,7 +20,7 @@ parser.add_argument('--config',  '-c',
 parser.add_argument('--load_model', 
                     action='store_true',
                     help='If specified, load an existing model.',
-                    )
+                    ) # Assume we want to test only
 
 parser.add_argument('--store_model', 
                     action='store_true',
@@ -50,11 +50,10 @@ cudnn.benchmark = False
 
 model = vae_models[config['model_params']['name']](**config['model_params'])
 model_filename = "model.pt"
-
 if args.load_model:
     model.load_state_dict(torch.load(model_filename))
+    model.eval()
 model = model.double()
-# model.eval()
 
 hparams = argparse.Namespace(**config['exp_params'])
 experiment = VAEXperiment(model,
@@ -77,9 +76,12 @@ runner = Trainer(default_save_path=f"{tt_logger.save_dir}",
                  **config['trainer_params'])
 
 print(f"======= Training {config['model_params']['name']} =======")
-runner.fit(experiment)
 if args.store_model:
     torch.save(model.state_dict(), model_filename)
 
-# runner.test(experiment)
+if args.load_model:
+    runner.test(experiment)
+else:
+    runner.fit(experiment)
+
 print(next(model.parameters())[:10])

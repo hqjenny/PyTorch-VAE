@@ -1,12 +1,12 @@
 model_params:
   name: 'VanillaVAE'
-  in_channels: 10
+  in_channels: 7
   latent_dim: 4
 
 exp_params:
   dataset: cosa
   data_path: "/scratch/qijing.huang/matchlib/cmod/unittests/HybridRouterTopMeshTCGB"
-  img_size: 10
+  img_size: 7
   batch_size: 16 # Better to have a square number
   LR: 0.001
   weight_decay: 0.0
@@ -15,7 +15,7 @@ exp_params:
 trainer_params:
   gpus: 0
   max_nb_epochs: 50
-  max_epochs: 30
+  max_epochs: 10
 
 logging_params:
   save_dir: "logs/"

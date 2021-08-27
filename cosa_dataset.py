@@ -48,7 +48,9 @@ class CoSADataset(Dataset):
             idx = idx.tolist()
 
         # arch_feats = self.arch_feats_frame.iloc[idx, 3:]
-        arch_feats = self.arch_feats_frame.iloc[idx, [3,4,5,7,8,9,10,11,12,14]]
+        # arch_feats = self.arch_feats_frame.iloc[idx, ,[3,4,5,7,8,9,10,11,12,14]]
+        arch_feats = self.arch_feats_frame.iloc[idx, [3, 4, 5, 8, 10, 12, 14]]
+
         label = self.arch_feats_frame.iloc[idx, 1]
 
         arch_feats = np.array([arch_feats])
