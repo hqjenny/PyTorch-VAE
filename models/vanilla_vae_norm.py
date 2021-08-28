@@ -1,4 +1,5 @@
 import torch
+import math
 from models import BaseVAE
 from torch import nn
 from torch.nn import functional as F
@@ -12,18 +13,27 @@ class VanillaVAENorm(BaseVAE):
                  in_channels: int,
                  latent_dim: int,
                  hidden_dims: List = None,
+                 log: bool = True,
+                 norm: bool = True,
                  **kwargs) -> None:
         super(VanillaVAENorm, self).__init__()
 
         self.latent_dim = latent_dim
         # self.scale = torch.tensor([2 ** 16] * in_channels).double()
-        self.scale = torch.tensor([128, 4096, 4096, 512, 256, 512, 2**16, 256, 4096, 2**18]).double()
-    
+        self.scale = torch.tensor([64, 4096, 4096, 512, 256, 512, 2**16, 256, 4096, 2**18]).double()
+        self.log_scale = torch.log(self.scale.double())
+
+        self.norm = norm
+        self.log = log
 
         modules = []
         if hidden_dims is None:
             #hidden_dims = [32, 64, 128, 256, 512]
-            hidden_dims = [32,64]
+            #hidden_dims = [256,512]
+            #hidden_dims = [512,1024,512]
+            #hidden_dims = [512,1024]
+            hidden_dims = [1024, 2048]
+            #hidden_dims = [2048, 4096]
 
         # Build Encoder
         in_dim = in_channels
@@ -95,11 +105,24 @@ class VanillaVAENorm(BaseVAE):
         :return: (Tensor) List of latent codes
         """
         # print("input", input)
-        norm_input = torch.div(input.double(), self.scale)
-        max_norm_input = torch.max(norm_input).item()
-        print("max norm input", max_norm_input)
-        assert(max_norm_input <= 1)
-        result = self.encoder(norm_input.double())
+
+        encode_input = input
+        encode_scale = self.scale
+        if self.log:
+            encode_input = torch.log(encode_input.double())
+            encode_scale = self.log_scale
+        if self.norm:
+            encode_input = torch.div(encode_input, encode_scale)
+            max_norm_input = torch.max(encode_input).item()
+            print("max norm input", max_norm_input)
+            assert(max_norm_input <= 1)
+        #else:
+        #    self.max_norm_input = torch.max(encode_input).item()
+        #    encode_input = torch.div(encode_input, self.max_norm_input)
+
+        result = self.encoder(encode_input.double())
+ 
+        # result = self.encoder(norm_input.double())
         result = torch.flatten(result, start_dim=1)
 
         # Split the result into mu and var components
@@ -120,8 +143,19 @@ class VanillaVAENorm(BaseVAE):
         #result = result.view(-1, 512, 2, 2)
         result = self.decoder(result)
         result = self.final_layer(result)
-        denorm_result = torch.mul(result, self.scale)
-        return denorm_result
+
+        encode_scale = self.scale
+        decode_result = result
+        if self.log:
+            encode_scale = self.log_scale
+        if self.norm:
+            decode_result = torch.mul(result.double(), encode_scale)
+        #else: 
+        #    decode_result = torch.mul(result.double(), self.max_norm_input)
+        if self.log:
+            #decode_result = torch.exp(torch.mul(decode_result, math.log(2)))
+            decode_result = torch.exp(decode_result)
+        return decode_result
 
     def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
         """
@@ -157,6 +191,8 @@ class VanillaVAENorm(BaseVAE):
 
         norm_recons = torch.div(recons.double(), self.scale)
         norm_input = torch.div(input.double(), self.scale)
+        # norm_input = input
+        # norm_recons = recons
 
         kld_weight = kwargs['M_N'] # Account for the minibatch samples from the dataset
         recons_loss =F.mse_loss(norm_recons, norm_input)

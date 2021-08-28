@@ -41,8 +41,15 @@ class VAEXperiment(pl.LightningModule):
         self.curr_device = real_img.device
 
         results = self.forward(real_img, labels = labels)
+        M_N = self.params['batch_size']/ self.num_train_imgs
+        outp, inp, mu, _ = results 
+
+        print(f'train_input, {inp}')
+        print(f'train_output, {outp}')
+        print(f'train_latent, {mu}')
+
         train_loss = self.model.loss_function(*results,
-                                              M_N = self.params['batch_size']/ self.num_train_imgs,
+                                              M_N = 0.001,
                                               optimizer_idx=optimizer_idx,
                                               batch_idx = batch_idx)
 
@@ -59,11 +66,15 @@ class VAEXperiment(pl.LightningModule):
 
         # exit(0)
 
-        print(f'real_img, {batch}')
         results = self.forward(real_img, labels = labels)
-        print(f'latent vector, {results}')
+        outp, inp, mu, _ = results 
+
+        print(f'val_input, {inp}')
+        print(f'val_output, {outp}')
+        print(f'val_latent, {mu}')
+        #M_N = self.params['batch_size']/ self.num_val_imgs,
         val_loss = self.model.loss_function(*results,
-                                            M_N = self.params['batch_size']/ self.num_val_imgs,
+                                            M_N = 0.001,
                                             optimizer_idx = optimizer_idx,
                                             batch_idx = batch_idx)
 
