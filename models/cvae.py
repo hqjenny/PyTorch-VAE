@@ -12,23 +12,29 @@ class ConditionalVAE(BaseVAE):
                  num_classes: int,
                  latent_dim: int,
                  hidden_dims: List = None,
-                 img_size:int = 64,
+                 log: bool = True,
+                 norm: bool = True,
                  **kwargs) -> None:
         super(ConditionalVAE, self).__init__()
 
         self.latent_dim = latent_dim
+        # self.scale = torch.tensor([2 ** 16] * in_channels).double()
+        # self.scale = torch.tensor([64, 4096, 4096, 512, 256, 512, 2**16, 256, 4096, 2**18]).double()
+        scale = [64, 4096, 4096, 256, 2**16, 4096, 2**18]
+        self.scale = torch.tensor(scale).double()
+        self.log_scale = torch.log(self.scale.double())
 
-        self.scale = torch.tensor([2 ** 18] * in_channels).double()
-        self.encode_scale = torch.tensor([2 ** 18] * in_channels + [2**24]).double()
-        self.img_size = img_size
+        # self.scale = torch.tensor([2 ** 18] * in_channels).double()
+        # self.encode_scale = torch.tensor([2 ** 18] * in_channels + [2**24]).double()
+        self.encode_scale = torch.tensor(scale+[2**24]).double()
+        self.log_encode_scale = torch.log(self.encode_scale.double())
 
-        #self.embed_class = nn.Linear(num_classes, img_size * img_size)
-        # self.embed_data = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.norm = norm
+        self.log = log
 
         modules = []
         if hidden_dims is None:
-            #hidden_dims = [32, 64, 128, 256, 512]
-            hidden_dims = [32,64]
+            hidden_dims = [1024,2048]
 
         # To account for the extra label channel
         in_dim = in_channels + 1 
@@ -73,7 +79,6 @@ class ConditionalVAE(BaseVAE):
             )
 
 
-
         self.decoder = nn.Sequential(*modules)
 
         self.final_layer = nn.Sequential(
@@ -100,8 +105,25 @@ class ConditionalVAE(BaseVAE):
         :param input: (Tensor) Input tensor to encoder [N x C x H x W]
         :return: (Tensor) List of latent codes
         """
-        norm_input = torch.div(input.double(), self.encode_scale)
-        result = self.encoder(norm_input.double())
+        # print("input", input)
+
+        encode_input = input
+        encode_scale = self.encode_scale
+        if self.log:
+            encode_input = torch.log(encode_input.double())
+            encode_scale = self.log_encode_scale
+        if self.norm:
+            encode_input = torch.div(encode_input, encode_scale)
+            max_norm_input = torch.max(encode_input).item()
+            print("max norm input", max_norm_input)
+            assert(max_norm_input <= 1)
+        #else:
+        #    self.max_norm_input = torch.max(encode_input).item()
+        #    encode_input = torch.div(encode_input, self.max_norm_input)
+
+        result = self.encoder(encode_input.double())
+ 
+        # result = self.encoder(norm_input.double())
         result = torch.flatten(result, start_dim=1)
 
         # Split the result into mu and var components
@@ -112,12 +134,29 @@ class ConditionalVAE(BaseVAE):
         return [mu, log_var]
 
     def decode(self, z: Tensor) -> Tensor:
+        """
+        Maps the given latent codes
+        onto the image space.
+        :param z: (Tensor) [B x D]
+        :return: (Tensor) [B x C x H x W]
+        """
         result = self.decoder_input(z)
         #result = result.view(-1, 512, 2, 2)
         result = self.decoder(result)
         result = self.final_layer(result)
-        denorm_result = torch.mul(result, self.scale)
-        return denorm_result
+
+        encode_scale = self.scale
+        decode_result = result
+        if self.log:
+            encode_scale = self.log_scale
+        if self.norm:
+            decode_result = torch.mul(result.double(), encode_scale)
+        #else: 
+        #    decode_result = torch.mul(result.double(), self.max_norm_input)
+        if self.log:
+            #decode_result = torch.exp(torch.mul(decode_result, math.log(2)))
+            decode_result = torch.exp(decode_result)
+        return decode_result
 
     def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
         """
@@ -143,25 +182,30 @@ class ConditionalVAE(BaseVAE):
         mu, log_var = self.encode(x)
 
         z = self.reparameterize(mu, log_var)
-        print(z.size())
-        print(embedded.size())
-
-
-        #z = torch.cat([z, embedded], dim = 1)
         z = torch.cat([z, embedded], dim=1)
-        print(z.size())
         return  [self.decode(z), input, mu, log_var]
 
     def loss_function(self,
                       *args,
                       **kwargs) -> dict:
+        """
+        Computes the VAE loss function.
+        KL(N(\mu, \sigma), N(0, 1)) = \log \frac{1}{\sigma} + \frac{\sigma^2 + \mu^2}{2} - \frac{1}{2}
+        :param args:
+        :param kwargs:
+        :return:
+        """
         recons = args[0]
         input = args[1]
         mu = args[2]
         log_var = args[3]
 
+        norm_recons = torch.div(recons.double(), self.scale)
+        norm_input = torch.div(input.double(), self.scale)
+
         kld_weight = kwargs['M_N']  # Account for the minibatch samples from the dataset
-        recons_loss =F.mse_loss(recons, input)
+
+        recons_loss =F.mse_loss(norm_recons, norm_input)
 
         kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
 
