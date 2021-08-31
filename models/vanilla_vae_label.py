@@ -5,7 +5,7 @@ from torch.nn import functional as F
 from .types_ import *
 
 
-class ConditionalVAE(BaseVAE):
+class VanillaVAELabel(BaseVAE):
 
     def __init__(self,
                  in_channels: int,
@@ -15,7 +15,7 @@ class ConditionalVAE(BaseVAE):
                  log: bool = True,
                  norm: bool = True,
                  **kwargs) -> None:
-        super(ConditionalVAE, self).__init__()
+        super(VanillaVAELabel, self).__init__()
 
         self.latent_dim = latent_dim
         # self.scale = torch.tensor([2 ** 16] * in_channels).double()
@@ -59,7 +59,7 @@ class ConditionalVAE(BaseVAE):
         # Build Decoder
         modules = []
 
-        self.decoder_input = nn.Linear(latent_dim+1, hidden_dims[-1])
+        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1])
 
         hidden_dims.reverse()
 
@@ -94,7 +94,7 @@ class ConditionalVAE(BaseVAE):
                             nn.LeakyReLU(),
 #                            nn.Conv2d(hidden_dims[-1], out_channels= 1,
 #                                      kernel_size= 1, padding= 1),
-                            nn.Linear(hidden_dims[-1], in_channels),
+                            nn.Linear(hidden_dims[-1], in_channels+1),
                             nn.Sigmoid()
                             )
 
@@ -145,10 +145,10 @@ class ConditionalVAE(BaseVAE):
         result = self.decoder(result)
         result = self.final_layer(result)
 
-        encode_scale = self.scale
+        encode_scale = self.encode_scale
         decode_result = result
         if self.log:
-            encode_scale = self.log_scale
+            encode_scale = self.log_encode_scale
         if self.norm:
             decode_result = torch.mul(result.double(), encode_scale)
         #else: 
@@ -182,7 +182,7 @@ class ConditionalVAE(BaseVAE):
         mu, log_var = self.encode(x)
 
         z = self.reparameterize(mu, log_var)
-        z = torch.cat([z, embedded], dim=1)
+        # z = torch.cat([z, embedded], dim=1)
         return  [self.decode(z), input, mu, log_var]
 
     def loss_function(self,
@@ -197,11 +197,17 @@ class ConditionalVAE(BaseVAE):
         """
         recons = args[0]
         input = args[1]
+        y = kwargs['labels'].double() 
+        embedded = y.view(-1, 1)
+        # x = torch.cat([embedded_input, embedded_class], dim = 1)
+        input = torch.cat([input.double(), embedded.double()], dim = 1)
+
         mu = args[2]
         log_var = args[3]
 
-        norm_recons = torch.div(recons.double(), self.scale)
-        norm_input = torch.div(input.double(), self.scale)
+
+        norm_recons = torch.div(recons.double(), self.encode_scale)
+        norm_input = torch.div(input.double(), self.encode_scale)
 
         kld_weight = kwargs['M_N']  # Account for the minibatch samples from the dataset
 

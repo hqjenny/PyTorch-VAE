@@ -1,5 +1,6 @@
 from .base import *
 from .vanilla_vae import *
+from .vanilla_vae_label import *
 from .vanilla_vae_norm import *
 from .gamma_vae import *
 from .beta_vae import *
@@ -50,5 +51,6 @@ vae_models = {'HVAE':HVAE,
               'LogCoshVAE':LogCoshVAE,
               'VanillaVAE':VanillaVAE,
               'VanillaVAENorm':VanillaVAENorm,
+              'VanillaVAELabel': VanillaVAELabel,
               'ConditionalVAE':ConditionalVAE,
               'CategoricalVAE':CategoricalVAE}

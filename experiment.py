@@ -51,6 +51,7 @@ class VAEXperiment(pl.LightningModule):
         train_loss = self.model.loss_function(*results,
                                               M_N = 0.001,
                                               optimizer_idx=optimizer_idx,
+                                              labels = labels, 
                                               batch_idx = batch_idx)
 
         self.logger.experiment.log({key: val.item() for key, val in train_loss.items()})
@@ -76,6 +77,7 @@ class VAEXperiment(pl.LightningModule):
         val_loss = self.model.loss_function(*results,
                                             M_N = 0.001,
                                             optimizer_idx = optimizer_idx,
+                                            labels = labels, 
                                             batch_idx = batch_idx)
 
         return val_loss
@@ -101,6 +103,7 @@ class VAEXperiment(pl.LightningModule):
         val_loss = self.model.loss_function(*results,
                                             M_N = self.params['batch_size']/ self.num_val_imgs,
                                             optimizer_idx = optimizer_idx,
+                                            labels = labels, 
                                             batch_idx = batch_idx)
 
         return val_loss
