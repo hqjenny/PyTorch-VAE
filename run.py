@@ -76,12 +76,12 @@ runner = Trainer(default_save_path=f"{tt_logger.save_dir}",
                  **config['trainer_params'])
 
 print(f"======= Training {config['model_params']['name']} =======")
-if args.store_model:
-    torch.save(model.state_dict(), model_filename)
-
 if args.load_model:
     runner.test(experiment)
 else:
     runner.fit(experiment)
+
+if args.store_model:
+    torch.save(model.state_dict(), model_filename)
 
 print(next(model.parameters())[:10])
